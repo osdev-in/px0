@@ -75,6 +75,13 @@ function drawSetup(s, d) {
   const offer = s.servers.filter(v => v.options.length || v.job);
   const running = s.servers.some(v => v.job && v.job.running);
   let html = '<div class="lsp-setup">';
+  if (s.msvc) {
+    const projects = [];
+    if (s.msvc.visualStudio) projects.push('Visual Studio');
+    if (s.msvc.cmake) projects.push('CMake');
+    html += '<div class="hint"><b>' + esc(projects.join(' + ')) +
+      ' project detected.</b> ' + esc(s.msvc.guidance) + '</div>';
+  }
   if (s.state === 'failed') {
     html += '<p><b>' + esc(s.server) + '</b> did not start: <span class="lsp-reason">' + esc(s.reason || 'unknown error') + '</span></p>' +
       '<div class="lsp-row"><button class="lsp-btn" data-start>Retry</button></div>';

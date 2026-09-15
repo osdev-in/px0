@@ -630,6 +630,17 @@ func TestResolveTarget(t *testing.T) {
 	}
 }
 
+func TestEvalTargetPath(t *testing.T) {
+	root := t.TempDir()
+	got, err := evalTargetPath(root)
+	if err != nil {
+		t.Fatalf("evalTargetPath(%q): %v", root, err)
+	}
+	if filepath.Clean(got) != filepath.Clean(root) {
+		t.Errorf("evalTargetPath(%q) = %q", root, got)
+	}
+}
+
 func TestResolveTargetGitRepo(t *testing.T) {
 	if !gitInstalled() {
 		t.Skip("git not installed")

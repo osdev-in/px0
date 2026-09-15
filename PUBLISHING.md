@@ -84,6 +84,10 @@ git push origin v0.2.0
   ```bash
   curl -fsSL https://px0.ai/install.sh | sh
   ```
+1. Verify the native Windows installer from PowerShell:
+  ```powershell
+  irm https://px0.ai/install.ps1 | iex
+  ```
 1. Verify self-update functionality:
   ```bash
   px0 --update

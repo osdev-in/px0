@@ -83,6 +83,18 @@ type lspSetup struct {
 	Server  string           `json:"server"`
 	Reason  string           `json:"reason,omitempty"` // why a server failed to start
 	Servers []lspSetupServer `json:"servers"`
+	MSVC    *msvcSetup       `json:"msvc,omitempty"`
+}
+
+// msvcSetup is read-only workspace advice for C and C++ projects on Windows.
+// px0 never invokes Visual Studio, CMake, or a compiler; it only identifies
+// project markers and a compiler that is already available to the user.
+type msvcSetup struct {
+	VisualStudio bool   `json:"visualStudio"`
+	CMake        bool   `json:"cmake"`
+	Available    bool   `json:"available"`
+	Compiler     string `json:"compiler,omitempty"`
+	Guidance     string `json:"guidance"`
 }
 
 // Setup describes what the UI can offer for rel: the server's state, and each
@@ -90,6 +102,9 @@ type lspSetup struct {
 func (m *lspManager) Setup(rel string) lspSetup {
 	st, srv := m.State(rel)
 	s := lspSetup{Enabled: m.enabled, State: string(st), Server: srv, Servers: []lspSetupServer{}}
+	if isCPPFile(rel) {
+		s.MSVC = detectMSVCSetup(m.root)
+	}
 	if st == lspFailed {
 		// State reports a failure's reason in place of the server name.
 		s.Reason = srv
@@ -112,6 +127,92 @@ func (m *lspManager) Setup(rel string) lspSetup {
 		s.Servers = append(s.Servers, ss)
 	}
 	return s
+}
+
+func isCPPFile(rel string) bool {
+	switch strings.ToLower(filepath.Ext(rel)) {
+	case ".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".m", ".mm":
+		return true
+	default:
+		return false
+	}
+}
+
+// detectMSVCSetup walks only for project metadata. It deliberately does not
+// inspect solution contents or execute any project tool.
+func detectMSVCSetup(root string) *msvcSetup {
+	if runtime.GOOS != "windows" {
+		return nil
+	}
+	var visualStudio, cmake bool
+	seen := 0
+	_ = filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil || seen >= 10000 {
+			return filepath.SkipDir
+		}
+		if entry.IsDir() {
+			switch strings.ToLower(entry.Name()) {
+			case ".git", ".vs", "node_modules":
+				if path != root {
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		}
+		seen++
+		name := strings.ToLower(entry.Name())
+		switch {
+		case name == "cmakelists.txt", name == "cmakepresets.json", name == "cmakeuserpresets.json":
+			cmake = true
+		case strings.HasSuffix(name, ".sln"), strings.HasSuffix(name, ".vcxproj"):
+			visualStudio = true
+		}
+		return nil
+	})
+
+	if !visualStudio && !cmake {
+		return nil
+	}
+	s := &msvcSetup{VisualStudio: visualStudio, CMake: cmake}
+	s.Compiler = findMSVCCompiler()
+	s.Available = s.Compiler != ""
+	s.Guidance = msvcGuidance(visualStudio, cmake, s.Available)
+	return s
+}
+
+func msvcGuidance(visualStudio, cmake, available bool) string {
+	if !available {
+		if visualStudio && cmake {
+			return "Visual Studio and CMake project files were found, but MSVC is unavailable. Install Visual Studio or Build Tools with the Desktop development with C++ workload."
+		}
+		if visualStudio {
+			return "A Visual Studio C++ project was found, but MSVC is unavailable. Install Visual Studio or Build Tools with the Desktop development with C++ workload."
+		}
+		return "A CMake project was found, but MSVC is unavailable. Install Visual Studio or Build Tools with the Desktop development with C++ workload."
+	}
+	if cmake {
+		return "MSVC is available. Configure this CMake project from a Developer PowerShell or with a Visual Studio generator when you need to build it."
+	}
+	return "MSVC is available. Use a Developer PowerShell or Visual Studio when you need to build this project."
+}
+
+// findMSVCCompiler checks the active environment first, then the standard
+// Visual Studio and Build Tools installation layout. It never runs vswhere or
+// any compiler.
+func findMSVCCompiler() string {
+	if p, err := exec.LookPath("cl.exe"); err == nil {
+		return p
+	}
+	for _, base := range []string{os.Getenv("ProgramFiles"), os.Getenv("ProgramFiles(x86)")} {
+		if base == "" {
+			continue
+		}
+		pattern := filepath.Join(base, "Microsoft Visual Studio", "*", "*", "VC", "Tools", "MSVC", "*", "bin", "Hostx64", "x64", "cl.exe")
+		if matches, err := filepath.Glob(pattern); err == nil && len(matches) > 0 {
+			return matches[0]
+		}
+	}
+	return ""
 }
 
 // Rescan looks for servers again and forgets earlier start failures, so a server

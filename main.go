@@ -170,7 +170,7 @@ func resolveTarget(target string) (root, initialFile string, initialLine int, er
 	if err != nil {
 		return "", "", 0, err
 	}
-	resolved, err := filepath.EvalSymlinks(abs)
+	resolved, err := evalTargetPath(abs)
 	if err != nil {
 		return "", "", 0, fmt.Errorf("invalid target %s: %w", abs, err)
 	}
@@ -198,7 +198,7 @@ func resolveTarget(target string) (root, initialFile string, initialLine int, er
 	// use the current working directory as the workspace root.
 	if !filepath.IsAbs(cleanedTarget) {
 		if wd, err := os.Getwd(); err == nil {
-			if resolvedWd, err := filepath.EvalSymlinks(wd); err == nil {
+			if resolvedWd, err := evalTargetPath(wd); err == nil {
 				if rel, err := filepath.Rel(resolvedWd, resolved); err == nil && !strings.HasPrefix(rel, "..") && rel != "." {
 					return resolvedWd, filepath.ToSlash(rel), line, nil
 				}
@@ -207,6 +207,18 @@ func resolveTarget(target string) (root, initialFile string, initialLine int, er
 	}
 
 	return parentDir, filepath.Base(resolved), line, nil
+}
+
+// evalTargetPath canonicalizes a target when possible. Some Windows security
+// configurations deny EvalSymlinks even for an ordinary directory that the
+// process can otherwise read. A cleaned absolute path preserves px0's
+// read-only target boundary in that case while allowing the workspace to open.
+func evalTargetPath(abs string) (string, error) {
+	resolved, err := filepath.EvalSymlinks(abs)
+	if err != nil && runtime.GOOS == "windows" && os.IsPermission(err) {
+		return filepath.Clean(abs), nil
+	}
+	return resolved, err
 }
 
 // splitTargetLine separates trailing :line or :line:col from target if the candidate path exists.

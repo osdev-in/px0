@@ -107,3 +107,32 @@ func TestTailBufferKeepsTheEnd(t *testing.T) {
 		t.Errorf("tail = %q, want %q", got, "456789ab")
 	}
 }
+
+func TestMSVCGuidance(t *testing.T) {
+	cases := []struct {
+		name                           string
+		visualStudio, cmake, available bool
+		want                           string
+	}{
+		{"missing Visual Studio", true, false, false, "Visual Studio C++ project was found"},
+		{"missing CMake", false, true, false, "CMake project was found"},
+		{"both project kinds", true, true, false, "Visual Studio and CMake project files were found"},
+		{"available CMake", false, true, true, "Configure this CMake project"},
+		{"available Visual Studio", true, false, true, "Developer PowerShell or Visual Studio"},
+	}
+	for _, c := range cases {
+		if got := msvcGuidance(c.visualStudio, c.cmake, c.available); !strings.Contains(got, c.want) {
+			t.Errorf("%s: guidance = %q, want it to contain %q", c.name, got, c.want)
+		}
+	}
+}
+
+func TestMSVCSetupIsWindowsOnly(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows reports MSVC setup guidance")
+	}
+	m := newLSPManager(t.TempDir(), false)
+	if got := m.Setup("main.cpp").MSVC; got != nil {
+		t.Errorf("Setup().MSVC = %#v, want no Windows-specific guidance", got)
+	}
+}

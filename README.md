@@ -23,6 +23,24 @@ Because speed of access is everything when inspecting code, **px0 is obsessively
 curl -fsSL https://px0.ai/install.sh | sh
 ```
 
+### Quick Install (Windows PowerShell or cmd.exe)
+
+PowerShell:
+
+```powershell
+irm https://px0.ai/install.ps1 | iex
+```
+
+Command Prompt:
+
+```cmd
+curl -fsSLO https://px0.ai/install.cmd
+curl -fsSLO https://px0.ai/install.ps1
+install.cmd
+```
+
+The native Windows installer downloads and SHA-256 verifies the matching release binary, installs it under `%LOCALAPPDATA%\px0\bin`, and adds that directory to your user `PATH`. No Git Bash, WSL, or administrator access is required.
+
 ### Build from Source
 
 Requires Go 1.24+. No npm, node, CGO, or external dependencies:
@@ -38,6 +56,13 @@ To cross-compile binaries for all supported platforms:
 
 ```bash
 make dist
+```
+
+On Windows, build directly from PowerShell or Command Prompt:
+
+```powershell
+go build -trimpath -o px0.exe .
+.\px0.exe .
 ```
 
 ## Features
@@ -73,6 +98,8 @@ When installed, language servers provide semantic Go-to-Definition (`F12`), hove
 | LaTeX | `texlab` | `brew install texlab` |
 
 Servers spawn lazily on first request and shut down cleanly upon exit. Disable with `px0 -no-lsp`. You can also click **LSP: set up** in the status bar to view or trigger automatic installation for your OS.
+
+On Windows, the setup panel also recognizes Visual Studio (`.sln`, `.vcxproj`) and CMake (`CMakeLists.txt` or CMake presets) workspaces. It reports whether an installed or active MSVC `cl.exe` is available and explains when the **Desktop development with C++** workload or a Developer PowerShell is needed. This is read-only guidance: px0 never opens solutions, configures CMake, or builds projects.
 
 ## Why a Dedicated Code Viewer?
 

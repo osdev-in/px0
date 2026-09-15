@@ -107,6 +107,8 @@ px0 provides full incoming and outgoing call hierarchy navigation (`Calls` tab i
 
 When reading a codebase without an installed language server, the status bar displays `LSP: set up`. Clicking it opens the interactive setup panel (`web/src/lspsetup.js`).
 
+On Windows, this panel also provides read-only C/C++ environment guidance. It scans workspace filenames for Visual Studio (`.sln`, `.vcxproj`) and CMake (`CMakeLists.txt`, `CMakePresets.json`, `CMakeUserPresets.json`) metadata, then checks the active environment and standard Visual Studio/Build Tools layouts for `cl.exe`. It does not run `vswhere`, Visual Studio, CMake, or MSVC. The resulting message tells the user whether to install the **Desktop development with C++** workload or use a Developer PowerShell / Visual Studio generator.
+
 ### Security Validation (DNS-Rebinding Defense)
 
 Executing installation commands (e.g., `go install` or `npm install`) requires robust security precautions:
