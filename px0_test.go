@@ -604,7 +604,7 @@ func TestListenPortFallback(t *testing.T) {
 
 func TestResolveTarget(t *testing.T) {
 	root := t.TempDir()
-	resolvedRoot, err := filepath.EvalSymlinks(root)
+	resolvedRoot, err := evalTargetPath(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -658,7 +658,7 @@ func TestResolveTargetGitRepo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveTarget(subFile): %v", err)
 	}
-	if root != repo {
+	if !strings.EqualFold(filepath.ToSlash(root), filepath.ToSlash(repo)) {
 		t.Fatalf("resolveTarget root = %q, want repo %q", root, repo)
 	}
 	if initialFile != "pkg/sub/app.go" || initialLine != 0 {
@@ -670,7 +670,7 @@ func TestResolveTargetGitRepo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveTarget(%q): %v", targetWithLine, err)
 	}
-	if root != repo || initialFile != "pkg/sub/app.go" || initialLine != 42 {
+	if !strings.EqualFold(filepath.ToSlash(root), filepath.ToSlash(repo)) || initialFile != "pkg/sub/app.go" || initialLine != 42 {
 		t.Fatalf("resolveTarget with line: got root=%q file=%q line=%d", root, initialFile, initialLine)
 	}
 
@@ -679,7 +679,7 @@ func TestResolveTargetGitRepo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveTarget(%q): %v", targetWithLineCol, err)
 	}
-	if root != repo || initialFile != "pkg/sub/app.go" || initialLine != 42 {
+	if !strings.EqualFold(filepath.ToSlash(root), filepath.ToSlash(repo)) || initialFile != "pkg/sub/app.go" || initialLine != 42 {
 		t.Fatalf("resolveTarget with line:col: got root=%q file=%q line=%d", root, initialFile, initialLine)
 	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -114,18 +115,23 @@ func TestExternalAllowlist(t *testing.T) {
 	m := newLSPManager(root, false)
 	s := NewServer(ix, m)
 
-	if _, _, ok := s.resolvePath("/etc/passwd"); ok {
+	externalDir := t.TempDir()
+	outside := filepath.Join(externalDir, "outside.go")
+	if err := os.WriteFile(outside, []byte("package outside\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, ok := s.resolvePath(outside); ok {
 		t.Error("resolvePath allowed an arbitrary absolute path")
 	}
-	m.allow("/usr/lib/go/src/strings/builder.go")
-	abs, _, ok := s.resolvePath("/usr/lib/go/src/strings/builder.go")
-	if !ok || abs != "/usr/lib/go/src/strings/builder.go" {
+	m.allow(outside)
+	abs, _, ok := s.resolvePath(outside)
+	if !ok || abs != outside {
 		t.Errorf("resolvePath refused an allowlisted path: %q %v", abs, ok)
 	}
-	if _, _, ok := s.resolvePath("/usr/lib/go/src/strings/other.go"); ok {
+	if _, _, ok := s.resolvePath(filepath.Join(externalDir, "other.go")); ok {
 		t.Error("allowlisting one file allowed a sibling")
 	}
-	if _, _, ok := s.resolvePath("../../../etc/shadow"); ok {
+	if _, _, ok := s.resolvePath(filepath.Join("..", "..", "..", "shadow")); ok {
 		t.Error("relative traversal still escapes the root")
 	}
 }

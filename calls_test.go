@@ -71,7 +71,11 @@ func TestCallTrail(t *testing.T) {
 		t.Fatal(err)
 	}
 	aURI := pathToURI(filepath.Join(root, "a.go"))
-	const extPath = "/usr/lib/go/src/fmt/print.go"
+	extDir := t.TempDir()
+	extPath := filepath.Join(extDir, "print.go")
+	if err := os.WriteFile(extPath, []byte("package fmt\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	extURI := pathToURI(extPath)
 
 	var mu sync.Mutex
@@ -118,9 +122,15 @@ func TestCallTrail(t *testing.T) {
 	if !strings.Contains(echoed, `"token":"B"`) {
 		t.Errorf("item was not echoed verbatim to the server: %s", echoed)
 	}
-	// Sorted by path: the absolute external path sorts before "a.go".
-	ext, a := callers[0], callers[1]
-	if !ext.Ext || ext.Path != extPath || !m.Allowed(extPath) {
+	var ext, a CallNode
+	for _, caller := range callers {
+		if caller.Name == "Println" {
+			ext = caller
+		} else if caller.Name == "A" {
+			a = caller
+		}
+	}
+	if !ext.Ext || ext.Path != filepath.ToSlash(extPath) || !m.Allowed(extPath) {
 		t.Errorf("external caller = %+v, allowed=%v; want ext and allowlisted", ext, m.Allowed(extPath))
 	}
 	if a.Name != "A" || a.SitePath != "a.go" || fmt.Sprint(a.Sites) != "[3]" {
@@ -146,11 +156,12 @@ func TestCallTrailForgedItem(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	forged, _ := json.Marshal(callItem("x", pathToURI("/etc/passwd"), 0))
+	forgedPath := filepath.Join(t.TempDir(), "forged.go")
+	forged, _ := json.Marshal(callItem("x", pathToURI(forgedPath), 0))
 	if _, err := m.Calls(ctx, "a.go", string(forged), false); err != nil {
 		t.Fatalf("Calls: %v", err)
 	}
-	if m.Allowed("/etc/passwd") {
+	if m.Allowed(forgedPath) {
 		t.Error("a browser-supplied item allowlisted a path outside the tree")
 	}
 	if _, err := m.Calls(ctx, "a.go", `{"name":"x"}`, false); err == nil {
